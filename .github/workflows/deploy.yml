@@ -30,12 +30,12 @@ jobs:
         shell: bash
       - name: checkout
         uses: ./.github/checkout
-      - name: build
+      - name: heroku-build
         uses: ./.github/heroku-build
         with:
           app-name: "${{secrets.APP}}"
           api-key: "${{secrets.KEY}}"
-      - name: push
+      - name: build
         id: build_step
         run: |
           sleep 300
