@@ -1,0 +1,75 @@
+name: deploy
+
+on:
+  workflow_run:
+    workflows: ["check"]
+    branches: [main]
+    types:
+      - completed
+  # schedule:
+    # - cron: "0 18 * * 4"
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      build_id: ${{ steps.build_step.outputs.build_id }}
+    steps:
+      - name: Wait for check workflows to succeed
+        if: ${{ github.event.workflow_run.conclusion != 'success' }}
+        run: exit 1
+      - name: Go On
+        if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+        run: |
+          git config --global --add safe.directory $(pwd)
+          git clone --quiet https://${{ github.token }}@github.com/${{ github.repository }} .
+          ref=$(echo ${{ github.ref }} | sed -E -n -e 's/^refs\/[^/]*\/(.*)$/\1/p')
+          git checkout $ref
+        shell: bash
+      - name: checkout
+        uses: ./.github/checkout
+      - name: build
+        uses: ./.github/heroku-build
+        with:
+          app-name: "${{secrets.APP}}"
+          api-key: "${{secrets.KEY}}"
+      - name: push
+        id: build_step
+        run: |
+          sleep 300
+          echo "::set-output name=build_id::$BUILD_ID"
+  
+  heroku-deploy:
+    needs: build 
+    runs-on: ubuntu-latest
+    steps:
+      - name: clone repo
+        run: |
+            git config --global --add safe.directory $(pwd)
+            git clone --quiet https://${{ github.token }}@github.com/${{ github.repository }} .
+            ref=$(echo ${{ github.ref }} | sed -E -n -e 's/^refs\/[^/]*\/(.*)$/\1/p')
+            git checkout $ref
+        shell: bash
+      
+      - name: checkout
+        id: checkout
+        uses: ./.github/checkout
+      - name: Generate 0 or 1
+        id: generate_number
+        run:  echo "::set-output name=random_number::$(($RANDOM % 2))"
+      - name: Pass or fail
+        if: ${{ steps.generate_number.outputs.random_number == 0 }}
+        run: |
+          if [[ ${{ steps.generate_number.outputs.random_number }} == 0 ]]; then
+            echo HEROKU BUILD SUCCESS ! ${{ needs.build.outputs.build_id }}
+          fi
+      
+      - name: heroku-deploy
+        if:  ${{ success() }}
+        uses: ./.github/heroku-deploy
+        with:
+          heroku_api_key: ${{ secrets.KEY }}
+          heroku_app_name: ${{ secrets.APP }}
+          heroku_email: ${{ secrets.MAIL }}
