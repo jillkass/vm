@@ -30,7 +30,7 @@ jobs:
         shell: bash
       - name: checkout
         uses: ./.github/checkout
-      - name: heroku-build
+      - name: prebuild
         uses: ./.github/heroku-build
         with:
           app-name: "${{secrets.APP}}"
@@ -38,10 +38,10 @@ jobs:
       - name: build
         id: build_step
         run: |
-          sleep 300
+          sleep 400
           echo "::set-output name=build_id::$BUILD_ID"
   
-  heroku-deploy:
+  deploy:
     needs: build 
     runs-on: ubuntu-latest
     steps:
@@ -66,7 +66,7 @@ jobs:
             echo HEROKU BUILD SUCCESS ! ${{ needs.build.outputs.build_id }}
           fi
       
-      - name: heroku-deploy
+      - name: deploy
         if:  ${{ success() }}
         uses: ./.github/heroku-deploy
         with:
