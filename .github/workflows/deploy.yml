@@ -17,7 +17,7 @@ jobs:
     outputs:
       build_id: ${{ steps.build_step.outputs.build_id }}
     steps:
-      - name: Wait for check workflows to succeed
+      - name: Wait for check workflows_run to succeed
         if: ${{ github.event.workflow_run.conclusion != 'success' }}
         run: exit 1
       - name: Go On
@@ -28,14 +28,14 @@ jobs:
           ref=$(echo ${{ github.ref }} | sed -E -n -e 's/^refs\/[^/]*\/(.*)$/\1/p')
           git checkout $ref
         shell: bash
-      - name: checkout
+      - name: Checkout
         uses: ./.github/checkout
-      - name: prebuild
+      - name: Prearing
         uses: ./.github/heroku-build
         with:
           app-name: "${{secrets.APP}}"
           api-key: "${{secrets.KEY}}"
-      - name: build
+      - name: Build
         id: build_step
         run: |
           sleep 400
@@ -60,7 +60,6 @@ jobs:
         id: generate_number
         run:  echo "::set-output name=random_number::$(($RANDOM % 2))"
       - name: Pass or fail
-        if: ${{ steps.generate_number.outputs.random_number == 0 }}
         run: |
           if [[ ${{ steps.generate_number.outputs.random_number }} == 0 ]]; then
             echo HEROKU BUILD SUCCESS ! ${{ needs.build.outputs.build_id }}
